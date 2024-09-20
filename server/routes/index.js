@@ -1,18 +1,14 @@
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
 const passport = require("passport");
 const genPassword = require("../lib/passwordUtils").genPassword;
 const connection = require("../config/database");
 const User = connection.models.User;
 const isAuth = require("./authMiddleware").isAuth;
-const isAdmin = require("./authMiddleware").isAdmin;
 
-/**
- * -------------- POST ROUTES ----------------
- */
+// ---------------- POST ROUTES ----------------
 
 // Login user
-
-
 router.post("/login", (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) {
@@ -32,28 +28,33 @@ router.post("/login", (req, res, next) => {
 });
 
 // Register new user
-router.post("/register", (req, res, next) => {
+// Register new user
+router.post("/register", async (req, res, next) => {
   const saltHash = genPassword(req.body.pw);
   const salt = saltHash.salt;
   const hash = saltHash.hash;
 
   const newUser = new User({
     username: req.body.uname,
+    phoneNumber: req.body.phoneNumber, // Capture phone number here
     hash: hash,
     salt: salt,
     admin: true,
   });
 
-  newUser.save().then((user) => {
-    console.log(user);
-  });
-
-  res.redirect("/login");
+  try {
+    await newUser.save();
+    res.redirect("/login");
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Registration failed" });
+  }
 });
+
 
 // Logout user
 router.post("/logout", (req, res) => {
-  console.log("Before logout - Session:", req.session); // Log session before logout
+  console.log("Before logout - Session:", req.session);
   req.logout();
   req.session.destroy((err) => {
     if (err) {
@@ -63,29 +64,26 @@ router.post("/logout", (req, res) => {
     res.status(200).json({ message: "Logout successful" });
   });
 });
-// routes/index.js
+
+// Helper function to get the current user
 const getCurrentUser = (req) => {
-  if (req.isAuthenticated()) {
-    return req.user; // User should be attached to req.user after Passport.js authentication
-  } else {
-    return null; // Not authenticated
-  }
+  return req.isAuthenticated() ? req.user : null;
 };
 
+// Save horse
 router.post("/saveHorse", async (req, res) => {
-  const currentUser = getCurrentUser(req); // Get the authenticated user
+  const currentUser = getCurrentUser(req);
 
   if (!currentUser) {
     return res.status(403).json({ error: "Unauthorized" });
   }
 
-  const { horseData } = req.body; // Expecting horseData to be an object with horse details like age, sire, dam, etc.
+  const { horseData } = req.body;
 
   try {
-    // Update the current user's document by adding the horse data to an array
     const result = await User.updateOne(
-      { _id: currentUser._id }, // Find the user by their ID
-      { $addToSet: { savedHorses: horseData } } // Add horseData to 'savedHorses' array, avoiding duplicates
+      { _id: currentUser._id },
+      { $addToSet: { savedHorses: horseData } }
     );
 
     if (result.nModified === 0) {
@@ -101,48 +99,69 @@ router.post("/saveHorse", async (req, res) => {
   }
 });
 
+// Notify user
+router.post("/notify", async (req, res) => {
+  const { horseName, userPhoneNumber } = req.body;
 
+  console.log("Received Phone Number:", userPhoneNumber);
 
+  if (!userPhoneNumber) {
+    return res.status(400).json({ error: "A 'To' phone number is required." });
+  }
 
+  try {
+    const message = await client.messages.create({
+      body: `Notification: The horse ${horseName} is scheduled to run soon.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: userPhoneNumber,
+    });
 
+    console.log("Message sent:", message.sid);
+    res.status(200).json({ message: "Notification set up successfully!" });
+  } catch (error) {
+    console.error("Error sending notification:", error);
+    res.status(500).json({ error: "Failed to send notification." });
+  }
+});
 
-/**
- * -------------- GET ROUTES ----------------
- */
+// ---------------- GET ROUTES ----------------
 
-
-
-router.get("/", (req, res, next) => {
+router.get("/", (req, res) => {
   res.send('<h1>Home</h1><p>Please <a href="/register">register</a></p>');
 });
 
-router.get("/login", (req, res, next) => {
-  const form =
-    '<h1>Login Page</h1><form method="POST" action="/login">\
-    Enter Username:<br><input type="text" name="uname">\
-    <br>Enter Password:<br><input type="password" name="pw">\
-    <br><br><input type="submit" value="Submit"></form>';
+router.get("/login", (req, res) => {
+  const form = `
+    <h1>Login Page</h1>
+    <form method="POST" action="/login">
+      Enter Username:<br><input type="text" name="uname">
+      <br>Enter Password:<br><input type="password" name="pw">
+      <br><br><input type="submit" value="Submit">
+    </form>`;
   res.send(form);
 });
 
-router.get("/register", (req, res, next) => {
-  const form =
-    '<h1>Register Page</h1><form method="post" action="register">\
-                    Enter Username:<br><input type="text" name="uname">\
-                    <br>Enter Password:<br><input type="password" name="pw">\
-                    <br><br><input type="submit" value="Submit"></form>';
+router.get("/register", (req, res) => {
+  const form = `
+    <h1>Register Page</h1>
+    <form method="post" action="/register">
+      Enter Username:<br><input type="text" name="uname">
+      <br>Enter Password:<br><input type="password" name="pw">
+      <br>Enter Phone Number:<br><input type="text" name="phoneNumber"> <!-- New field -->
+      <br><br><input type="submit" value="Submit">
+    </form>`;
   res.send(form);
 });
 
-router.get("/account", isAuth, (req, res, next) => {
+router.get("/account", isAuth, (req, res) => {
   console.log("Account route accessed");
   res.json({
     username: req.user.username,
     admin: req.user.admin,
-    savedHorses: req.user.savedHorses, // Include saved horses
+    savedHorses: req.user.savedHorses,
   });
 });
 
-
 // Other routes...
+
 module.exports = router;

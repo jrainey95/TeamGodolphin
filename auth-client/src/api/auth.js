@@ -20,18 +20,20 @@ export const login = async (username, password) => {
 };
 
 // Register new user
-export const register = async (username, password) => {
+export const register = async (username, password, phoneNumber) => {
   try {
     const response = await API.post("/register", {
       uname: username,
       pw: password,
+      phoneNumber, // Include the phone number here
     });
-    return response.data; // Handle success data if needed
+    return response.data;
   } catch (error) {
     console.error("Error registering:", error);
     throw error;
   }
 };
+
 
 // Logout user
 // Logout user
@@ -78,3 +80,17 @@ export const saveHorse = async (horseData) => {
     throw error;
   }
 };
+export const notifyUser = async (horse, phoneNumber) => {
+  try {
+    const response = await API.post("/notify", {
+      horseName: horse.name,
+      userPhoneNumber: phoneNumber, // Make sure this is a valid phone number
+    });
+    alert("Notification set up successfully!");
+    return response.data;
+  } catch (error) {
+    console.error("Error setting up notification:", error);
+    alert("Failed to set up notification. Please try again.");
+  }
+};
+

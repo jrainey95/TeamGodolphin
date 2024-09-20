@@ -1,8 +1,10 @@
+import React, { useState } from "react";
 import axios from "axios";
-import React from "react";
-import { Link } from "react-router-dom"; // Import Link for routing
+import { Link } from "react-router-dom"; // Ensure Link is imported
 
 const Horses = () => {
+  const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
   const horses = [
     {
       id: 1,
@@ -4952,19 +4954,37 @@ const Horses = () => {
   ];
 
   const saveHorse = async (horse) => {
+    setLoading(true);
     try {
       const response = await axios.post(
         "http://localhost:3000/saveHorse",
         { horseData: horse },
         { withCredentials: true }
       );
-      console.log("Horse saved:", response.data);
       alert("Horse saved successfully!");
     } catch (error) {
-      console.error("Error saving horse:", error);
       alert("Failed to save horse. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
+
+const notifyUser = async (horse, userPhoneNumber) => {
+  setLoading(true);
+  try {
+    const response = await axios.post(
+      "http://localhost:3000/notify",
+      { horseId: horse.id, userPhoneNumber }, // Include the phone number here
+      { withCredentials: true }
+    );
+    alert("Notification set up successfully!");
+  } catch (error) {
+    alert("Failed to set up notification. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div>
@@ -4976,7 +4996,12 @@ const Horses = () => {
             <strong>{horse.name}</strong> - Age: {horse.age}, Gender:{" "}
             {horse.gender}, Sire: {horse.sire}, Dam: {horse.dam}, Trainer:{" "}
             {horse.trainer}, Country: {horse.country}
-            <button onClick={() => saveHorse(horse)}>Save Horse</button>
+            <button onClick={() => saveHorse(horse)} disabled={loading}>
+              {loading ? "Saving..." : "Save Horse"}
+            </button>
+            <button onClick={() => notifyUser(horse)} disabled={loading}>
+              {loading ? "Notifying..." : "Notify Me"}
+            </button>
           </li>
         ))}
       </ul>

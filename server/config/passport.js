@@ -6,7 +6,8 @@ const validPassword = require('../lib/passwordUtils').validPassword; // Correct 
 
 const customFields = {
   usernameField: 'uname',
-  passwordField: 'pw'
+  passwordField: 'pw',
+  phoneNumber: 'phone'
 };
 
 const verifyCallback = (username, password, done) => {

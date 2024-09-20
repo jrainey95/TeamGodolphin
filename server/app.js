@@ -6,12 +6,18 @@ const cors = require("cors");
 const MongoStore = require("connect-mongo")(session);
 const routes = require("./routes");
 const connection = require("./config/database");
+const twilio = require("twilio"); // Add Twilio
 
 // Load environment variables from .env file
 require("dotenv").config();
 
 // Initialize the Express application
 const app = express();
+
+// Twilio setup
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioClient = twilio(accountSid, authToken);
 
 // Middleware setup
 app.use(express.json());
@@ -57,6 +63,25 @@ app.use((req, res, next) => {
 
 // Route handling
 app.use(routes);
+
+// Twilio SMS Route
+app.post("/notify", async (req, res) => {
+  const { horseName, userPhoneNumber } = req.body;
+
+  try {
+    const message = await twilioClient.messages.create({
+      body: `Your horse ${horseName} is scheduled to run soon!`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: userPhoneNumber,
+    });
+
+    console.log("Message sent:", message.sid);
+    res.status(200).send("Notification sent successfully.");
+  } catch (error) {
+    console.error("Error sending message:", error);
+    res.status(500).send("Failed to send notification.");
+  }
+});
 
 // Global error handling
 app.use((err, req, res, next) => {
